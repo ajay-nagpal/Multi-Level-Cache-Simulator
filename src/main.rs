@@ -1,5 +1,8 @@
 use std::env;                   //read command line arguments
 use multi_level_cache_simulator::{print_err_msg, parse_args};// import utility fucntion used here 
+use multi_level_cache_simulator::cache::{process_trace_file,PolicyType};// import core simulation components
+
+#[allow(unused_variables)]
 pub fn main() {
 
   //collect command line args into a vector
@@ -24,4 +27,8 @@ pub fn main() {
     println!("invalid flag(s|b|E) value!");
     return;
   }
+  //process the trace file get the cache staticstics
+  // policy type if passed explicitly
+  // this design allow future extension
+  let (hits,misses,evictions)=process_trace_file(s,e,b,trace_file.as_str(),PolicyType::LRU);
 }

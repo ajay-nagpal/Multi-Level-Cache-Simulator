@@ -1,5 +1,9 @@
 use getopts::Options;              //Cli arguments parsing
 
+// declare modules as public so that files can see it.
+pub mod cache;
+pub mod policy;
+
 //to print help message when cli is invalid
 pub fn  print_err_msg(){
   println!("invalid cli!");
