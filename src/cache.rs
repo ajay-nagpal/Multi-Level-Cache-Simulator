@@ -1,13 +1,14 @@
 #![allow(dead_code)]
 use std::fs::File;                // file handling
-use crate::policy::ReplacementPoicy;
+use crate::policy::{ReplacementPoicy,LRU};
 
 //represent a single cache line
 //stores only metadata, not actual memory content
 // we are storing address  too because this will help us 
 //extending our design to multilevel cache
 // it is making basic cache operation fucntion easier to write and use 
-//as we can parse address and can get tag adn set index field for those functiones, instead of passing as arguments.
+//as we can parse address and can get tag adn set index field for those functiones
+// instead of passing as arguments.
 
 struct Line{
   contain_block:bool,// indicate whether a line is logiacally occupied
@@ -59,6 +60,61 @@ pub enum PolicyType{
   LRU,
 }
 
+/*
+implementation block for line
+responsible for creating  an empty cache line
+with contain_block set to false, tag and address as zero , as default placeholder values.
+*/
+impl Line{
+  fn new()->Self{
+    Self{
+        contain_block:false,
+        tag:0,
+        address:0,
+    }
+  }
+}
+
+/*
+implementation block for creating a cache set, 
+each line within a set is initialise using Line::new() constructior
+each set is associated with a replacement policy instance
+selection of policy is performed using PolicyType enumeration
+LRU policy is used 
+*/
+impl Set{
+  fn new(e:usize,policy_type:PolicyType)->Self{
+    let mut lines:Vec<Line>=Vec::new();
+    for _ in 0..e{
+      lines.push(Line::new());
+    }
+    // initilise policy based on type
+    let policy:Box<dyn ReplacementPoicy>=match policy_type{
+      PolicyType::LRU=>Box::new(LRU::new(e)),
+    };
+    Self{lines,policy}
+  }
+}
+
+/*
+cache implementation block for creating a cache form user specified parameters.
+set is dynamically allocated to stick to specifications.
+this also maintain counters for cache statistics suh as hits, misses and evicts
+also stores number of set index bits to caclulate total number of sets in cache 
+*/
+impl Cache{
+  fn new(s:usize, e:usize,b:usize,policy_type:PolicyType)->Self{
+    let mut sets:Vec<Set>=Vec::new();
+    let total_sets:usize=1<<s;
+
+    for _ in 0..total_sets{
+      sets.push(Set::new(e,policy_type));
+    }
+
+    Self{sets,s,b,hits:0,misses:0,evicts:0,}
+  }
+}
+
 #[allow(unused_variables)]
 // this function is called from simulator entry point main
 pub fn process_trace_file(s:usize,e:usize,b:usize,trace_file:&str,policy_type:PolicyType)->(u64,u64,u64){
@@ -69,5 +125,8 @@ pub fn process_trace_file(s:usize,e:usize,b:usize,trace_file:&str,policy_type:Po
       std::process::exit(1);
     }  
   };
+  // this function initilise a cache object form received arguments
+  let cache:Cache=Cache::new(s,e,b,policy_type);
+
   todo!()
 }
