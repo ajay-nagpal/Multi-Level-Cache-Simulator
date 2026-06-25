@@ -1,5 +1,8 @@
 #![allow(dead_code)]
 use std::fs::File;                // file handling
+use std::io::{BufReader,BufRead};// buffered reading of trace file
+
+use crate::extract_address;
 use crate::policy::{ReplacementPoicy,LRU};
 
 //represent a single cache line
@@ -128,5 +131,35 @@ pub fn process_trace_file(s:usize,e:usize,b:usize,trace_file:&str,policy_type:Po
   // this function initilise a cache object form received arguments
   let cache:Cache=Cache::new(s,e,b,policy_type);
 
-  todo!()
+  let reader=BufReader::new(file);
+
+  // read trace file line by line
+  for line in reader.lines(){
+    let address_str=match line{
+      Ok(v)=>v,
+      Err(_)=>continue,
+    };
+
+    let trimmed_address_str=address_str.trim();
+
+    // if trace line empty , continue for next line
+    if trimmed_address_str.is_empty(){
+      continue;
+    }
+
+    let start_char=trimmed_address_str.chars().next().unwrap();
+
+    // if trimmed trace line does not starts with instruction M|L|S continue to next line 
+    if ! matches!(start_char, 'M' | 'L' | 'S'){
+      continue;
+    }
+
+    // extract the memory address safely upon which we will operate our caceh form this trace line
+    let address:u64=match extract_address(&trimmed_address_str){
+      Some(addr)=>addr,
+      None=>continue,
+    };
+  }
+  // return final cache statistics such as hits , misses and evicts to the caller
+  (cache.hits,cache.misses,cache.evicts)
 }

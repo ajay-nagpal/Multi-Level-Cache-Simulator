@@ -10,6 +10,35 @@ pub fn  print_err_msg(){
   println!("required flags : -s <s> -E <E> -b <b> -t <tracefile>");
 }
 
+//extract a memory address from a trace line
+// for any invalid trace line it returns None to ensure correctness
+// otherwise it return Some(address)
+fn  extract_address(line:&str)->Option<u64>{
+
+  let parts:Vec<&str>=line.split_whitespace().collect();
+
+  if parts.len()!=2{
+    return None;
+  }
+
+  let adr_part:Vec<&str>=parts[1].split(',').collect();
+
+  if adr_part.len()!=2{
+    return None;
+  }
+
+  let adr_str:&str=adr_part[0];
+
+  //converts hexadecimal string into a u64 safely by avoiding panic!
+  //uses match to handle parsing error by returning None
+  let address:u64=match u64::from_str_radix(adr_str,16){
+    Ok(addr)=>addr,
+    Err(_)=>return None,
+  };
+  
+  Some(address)
+}
+
 //This function parse the command line args and extracts the cache parameters
 // this design is expandable for allowing future extension in cli, like adding -p flag for policy
 // we return None form this function in any invalid input case
