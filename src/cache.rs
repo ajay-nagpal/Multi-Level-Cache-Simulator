@@ -2,7 +2,7 @@
 use std::fs::File;                // file handling
 use std::io::{BufReader,BufRead};// buffered reading of trace file
 
-use crate::extract_address;
+use crate::{parse_address,extract_address};
 use crate::policy::{ReplacementPoicy,LRU};
 
 //represent a single cache line
@@ -118,7 +118,57 @@ impl Cache{
   }
 }
 
-#[allow(unused_variables)]
+/*
+implementation block containig basic cache function needed to operate on cache
+*/
+impl Cache{
+
+  /*  
+  searches address if present in a set or not 
+  if present increment the cache hit count and return enum HIT to indicate successful search.
+  if address not found, then its a miss, so increment cache miss count and return 
+  SearchResult::MISS to indicate a miss.
+  */
+  fn  search(&mut self,address:u64)->SearchResult{
+    //use set index to determine set
+    //search in lines of that set
+    
+    let (tag,set_index)=parse_address(address,self.s,self.b);
+    let set:&mut Set=&mut self.sets[set_index];
+
+    // iterate over all lines present in a set 
+    for (line_index,line) in set.lines.iter_mut().enumerate(){
+      // found match for extracted tag form address, 
+     // if match found its a hit
+     // record this cache access
+      if line.contain_block && line.tag==tag{
+        // record cache access on hit
+        // use lru implementation of policy that we have provided
+        
+        set.policy.record_cache_access(line_index);
+        self.hits+=1;// this again ensure in  design we dont have to write again and again this same line if search return a HIT
+        return SearchResult::HIT;
+      }
+    }
+    self.misses+=1;// this again ensure in design we dont have to write again and again this same line if search return a MISS
+    SearchResult::MISS 
+  }
+
+  /*
+  this fucntion handles core cache operation based on instruction type
+  load, store or modified(load+store)
+  */
+  #[allow(unused_variables)]
+  fn  operate(&mut self,address:u64, start_char:char){
+    
+    // for load or store instruction
+    if start_char=='L'|| start_char=='S'{
+      // if address found its a hit
+      let result:SearchResult=self.search(address);
+    } 
+  }
+}
+
 // this function is called from simulator entry point main
 pub fn process_trace_file(s:usize,e:usize,b:usize,trace_file:&str,policy_type:PolicyType)->(u64,u64,u64){
   let file=match File::open(trace_file){
@@ -129,7 +179,7 @@ pub fn process_trace_file(s:usize,e:usize,b:usize,trace_file:&str,policy_type:Po
     }  
   };
   // this function initilise a cache object form received arguments
-  let cache:Cache=Cache::new(s,e,b,policy_type);
+  let mut cache:Cache=Cache::new(s,e,b,policy_type);
 
   let reader=BufReader::new(file);
 
@@ -159,7 +209,11 @@ pub fn process_trace_file(s:usize,e:usize,b:usize,trace_file:&str,policy_type:Po
       Some(addr)=>addr,
       None=>continue,
     };
+
+    //perform cache operation on this address based on instruction type
+    cache.operate(address,start_char);
   }
+
   // return final cache statistics such as hits , misses and evicts to the caller
   (cache.hits,cache.misses,cache.evicts)
 }

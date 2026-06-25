@@ -10,6 +10,23 @@ pub fn  print_err_msg(){
   println!("required flags : -s <s> -E <E> -b <b> -t <tracefile>");
 }
 
+//decompose a memory address into a tag and set index 
+fn  parse_address(address:u64, s:usize, b:usize)->(u64,usize){
+  //remove the block offset bits and calculate shifted address
+  let shifted_address=address>>b;
+  
+  //mask for the set index: s lower bits set to 1
+  let set_index_mask=(1<<s)-1;
+
+  //extract the set index(next s bits)
+  let set_index=(shifted_address & set_index_mask) as usize;
+
+  //everything emaining after shifting by s is the tag
+  let tag=shifted_address>>s;
+
+  (tag,set_index)
+}
+
 //extract a memory address from a trace line
 // for any invalid trace line it returns None to ensure correctness
 // otherwise it return Some(address)
