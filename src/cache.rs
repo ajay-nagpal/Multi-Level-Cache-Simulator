@@ -132,7 +132,6 @@ impl Cache{
   }
 }
 
-
 /*
 multi level cache implementation block for creating a cache form user specified parameters.
 */
@@ -191,7 +190,23 @@ impl Cache{
 
   // evict a line from set based on policy and return the evicted address
   fn  evict(&mut self, address:u64)->u64{
-    todo!()
+    let (_,set_index)=parse_address(address,self.s,self.b);
+
+    let set:&mut Set=&mut self.sets[set_index];
+
+    // we have policy trait, 
+    // policies implemented it and provided its own implementations
+    //we can use that here to get the targeted line in a set to use in eviction
+    let target_line_index=set.policy.select_target();
+
+    // set the parameters of that line to default values to logically indicate that the line is empty 
+    set.lines[target_line_index].contain_block=false;
+    set.lines[target_line_index].tag=0;
+    
+    let evicted_address=set.lines[target_line_index].address;
+    set.lines[target_line_index].address=0;
+    
+    evicted_address
   }
 
   /*
@@ -200,7 +215,22 @@ impl Cache{
   the same address from another level.
   */
   fn invalidate(&mut self, address: u64) {
-    todo!()
+    // extract tag and set index
+    let (tag, set_index) = parse_address(address, self.s, self.b);
+
+    // get the corresponding set
+    let set: &mut Set = &mut self.sets[set_index];
+
+    // iterate over lines in the set
+    for line in set.lines.iter_mut() {
+      if line.contain_block && line.tag == tag {
+        // invalidate the line
+        line.contain_block = false;
+        line.address = 0;
+        line.tag = 0;
+        break; // only one line can match in a set
+      }
+    }
   }
 }
 
