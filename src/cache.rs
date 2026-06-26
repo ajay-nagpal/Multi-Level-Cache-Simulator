@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(unused_variables)]
 use std::fs::File;                // file handling
 use std::io::{BufReader,BufRead};// buffered reading of trace file
 
@@ -46,6 +47,17 @@ struct Cache{
   evicts:u64,
 }
 
+/*
+The simulator models two cache levels: L1, close to the CPU and very fast,
+and L2, farther away with higher latency but larger size.
+A multilevel_cache struct holds both caches, and CPU checks L1 first, 
+then L2 if needed
+*/
+struct MultiLevelCache {
+  l1: Cache,
+  l2: Cache,
+}
+
 #[derive(PartialEq,Debug,Eq)] // attribute to allow enum values to be comared using == or !=
 enum SearchResult{
   // enumeration to represent cache search result
@@ -72,9 +84,9 @@ with contain_block set to false, tag and address as zero , as default placeholde
 impl Line{
   fn new()->Self{
     Self{
-        contain_block:false,
-        tag:0,
-        address:0,
+      contain_block:false,
+      tag:0,
+      address:0,
     }
   }
 }
@@ -120,6 +132,21 @@ impl Cache{
   }
 }
 
+
+/*
+multi level cache implementation block for creating a cache form user specified parameters.
+*/
+impl MultiLevelCache {
+
+    fn new(s: usize, e: usize, b: usize, policy: PolicyType) -> Self {
+
+      Self {
+        l1: Cache::new(s, e, b, policy),
+        l2: Cache::new(s + 2, e * 2, b, policy), // bigger L2
+      }
+    }
+}
+
 /*
 implementation block containig basic cache function needed to operate on cache
 */
@@ -156,18 +183,87 @@ impl Cache{
     SearchResult::MISS 
   }
 
+  // insert address logically into set
+  // and update the recency information 
+  fn insert(&mut self,address:u64)->Option<u64>{
+    todo!()
+  }
+
+  // evict a line from set based on policy and return the evicted address
+  fn  evict(&mut self, address:u64)->u64{
+    todo!()
+  }
+
+  /*
+  we need to add an invalidate logic to remove line tag wise 
+  because sometimes eviction from one level might need to invalidate 
+  the same address from another level.
+  */
+  fn invalidate(&mut self, address: u64) {
+    todo!()
+  }
+}
+
+impl MultiLevelCache{
   /*
   this fucntion handles core cache operation based on instruction type
   load, store or modified(load+store)
   */
-  #[allow(unused_variables)]
-  fn  operate(&mut self,address:u64, start_char:char){
-    
-    // for load or store instruction
-    if start_char=='L'|| start_char=='S'{
-      // if address found its a hit
-      let result:SearchResult=self.search(address);
-    } 
+  fn exclusive_operate(&mut self, address: u64, start_char: char) {
+    if start_char=='L'||start_char=='S'{// l1 to register load
+      // load in register form l1 means 1st search
+      let l1_result:SearchResult=self.l1.search(address);
+      //if miss bring from RAM
+      if l1_result==SearchResult::MISS{
+        // if miss in l1 search in l2
+        let l2_result:SearchResult=self.l2.search(address);
+        // if not found in l2 
+        if l2_result==SearchResult::MISS{
+          // insert in l1, may evict a line
+          if let Some(evicted_address) = self.l1.insert(address) {
+            // back invalidation, if l1's evicted address add in l2
+            //because it is exclusive so no search needed it wont be present so direct insert
+            self.l2.insert(evicted_address);  
+          }
+        }
+        else{
+          // found in l2
+          // remove from l2
+          // insert in l1
+          self.l2.invalidate(address);
+          if let Some(evicted_address) = self.l1.insert(address) {
+            self.l2.insert(evicted_address); 
+          }
+        }    
+      }
+    }
+    else{
+      //load
+      let l1_result:SearchResult=self.l1.search(address);
+
+      if l1_result==SearchResult::MISS{
+        // if miss in l1 search in l2
+        let l2_result:SearchResult=self.l2.search(address);
+        // if not found in l2 
+        if l2_result==SearchResult::MISS{
+          if let Some(evicted_address) = self.l1.insert(address) {
+            // back invalidation, if l1's evicted address add in l2
+            //because it is exclusive so no search needed it wont be present so direct insert
+            self.l2.insert(evicted_address);  
+          }
+        }
+        else{
+          // found in l2
+          // remove from l2,insert in l1
+          self.l2.invalidate(address);
+          if let Some(evicted_address) = self.l1.insert(address) {
+            self.l2.insert(evicted_address); 
+          }
+        }  
+      }
+      //store
+      self.l1.search(address);
+    }
   }
 }
 
@@ -181,7 +277,7 @@ pub fn process_trace_file(s:usize,e:usize,b:usize,trace_file:&str,policy_type:Po
     }  
   };
   // this function initilise a cache object form received arguments
-  let mut cache:Cache=Cache::new(s,e,b,policy_type);
+  let mut cache:MultiLevelCache=MultiLevelCache::new(s,e,b,policy_type);
 
   let reader=BufReader::new(file);
 
@@ -213,9 +309,13 @@ pub fn process_trace_file(s:usize,e:usize,b:usize,trace_file:&str,policy_type:Po
     };
 
     //perform cache operation on this address based on instruction type
-    cache.operate(address,start_char);
+    cache.exclusive_operate(address,start_char);
   }
 
   // return final cache statistics such as hits , misses and evicts to the caller
-  (cache.hits,cache.misses,cache.evicts)
+  (
+    cache.l1.hits + cache.l2.hits,
+    cache.l1.misses + cache.l2.misses,
+    cache.l1.evicts + cache.l2.evicts
+  )
 }
