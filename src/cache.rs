@@ -3,7 +3,7 @@ use std::fs::File;                // file handling
 use std::io::{BufReader,BufRead};// buffered reading of trace file
 
 use crate::{parse_address,extract_address};
-use crate::policy::{ReplacementPoicy,LRU};
+use crate::policy::{ReplacementPolicy,LRU,FIFO};
 
 //represent a single cache line
 //stores only metadata, not actual memory content
@@ -28,7 +28,7 @@ we have implemented ReplacementPoicy per set basis
 struct Set{
   lines:Vec<Line>,
   // we will create a policy obj per set basis
-  policy:Box<dyn ReplacementPoicy>,
+  policy:Box<dyn ReplacementPolicy>,
 }
 
 /*
@@ -61,6 +61,7 @@ enum SearchResult{
 #[derive(Copy,Clone,PartialEq)] 
 pub enum PolicyType{
   LRU,
+  FIFO, // NEW policy added
 }
 
 /*
@@ -92,8 +93,9 @@ impl Set{
       lines.push(Line::new());
     }
     // initilise policy based on type
-    let policy:Box<dyn ReplacementPoicy>=match policy_type{
+    let policy:Box<dyn ReplacementPolicy>=match policy_type{
       PolicyType::LRU=>Box::new(LRU::new(e)),
+      PolicyType::FIFO => Box::new(FIFO::new(e)),
     };
     Self{lines,policy}
   }

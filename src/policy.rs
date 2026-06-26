@@ -3,7 +3,7 @@ use std::u64;
 // create a generic  interface for replacement policies
 // which will be implemented by policies
 
-pub trait ReplacementPoicy{
+pub trait ReplacementPolicy{
   // struct implementing this trait will provide implementations for these
 
   //for updating policy metadatawhen a cache line is accessed
@@ -39,7 +39,7 @@ impl LRU{
   }
 }
 
-impl ReplacementPoicy for LRU{
+impl ReplacementPolicy for LRU{
   
   //for updating policy metadata when a cache line is accessed
   // or in short to record cache access 
@@ -65,5 +65,48 @@ impl ReplacementPoicy for LRU{
       }
     }
     target_index
+  }
+}
+
+// FIFO replacement policy: evicts the earliest inserted line
+pub struct FIFO {
+  insertion_order: Vec<u64>, // insertion timestamp
+  time_counter: u64,
+}
+
+impl FIFO {
+  pub fn new(e: usize) -> Self {
+    Self {
+      insertion_order: vec![0; e],
+      time_counter: 1, // starting from 1 , because we will check for first insertion in FIFO.
+    }
+  }
+}
+
+impl ReplacementPolicy for FIFO {
+  // record insertion time (FIFO does NOT update on hit)
+  fn record_cache_access(&mut self, line_index: usize) {
+    // only set time if first insertion
+    if self.insertion_order[line_index] == 0 {
+      self.insertion_order[line_index] = self.time_counter;
+      self.time_counter += 1;
+    }
+  }
+  // select the oldest inserted line
+  fn select_target(&mut self) -> usize {
+    let mut min_time = u64::MAX;
+    let mut target_index: usize = 0;
+
+    for (index, &time) in self.insertion_order.iter().enumerate() {
+      if time < min_time {
+        min_time = time;
+        target_index = index;
+      }
+    }
+    target_index
+  }
+  //for FIFO we need reset recency logic so that we only update cache acces on fresh insert.
+  fn reset_on_evict(&mut self, index: usize) {
+    self.insertion_order[index] = 0; 
   }
 }
