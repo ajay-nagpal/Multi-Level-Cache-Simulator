@@ -1,13 +1,32 @@
 use getopts::Options;              //Cli arguments parsing
+use crate::cache::PolicyType;     // -p policy flag for replacement policy type
+use std::str::FromStr;
 
 // declare modules as public so that files can see it.
 pub mod cache;
 pub mod policy;
 
+impl FromStr for PolicyType {
+
+  type Err = ();
+
+  fn from_str(value:&str)->Result<Self,Self::Err>{
+
+    match value.to_uppercase().as_str(){
+
+      "LRU" => Ok(PolicyType::LRU),
+
+      "FIFO" => Ok(PolicyType::FIFO),
+
+      _ => Err(()),
+    }
+  }
+}
+
 //to print help message when cli is invalid
 pub fn  print_err_msg(){
   println!("invalid cli!");
-  println!("required flags : -s <s> -E <E> -b <b> -t <tracefile>");
+  println!("required flags : -s <s> -E <E> -b <b> -t <tracefile> -p <policy>");
 }
 
 //decompose a memory address into a tag and set index 
@@ -59,10 +78,10 @@ fn  extract_address(line:&str)->Option<u64>{
 //This function parse the command line args and extracts the cache parameters
 // this design is expandable for allowing future extension in cli, like adding -p flag for policy
 // we return None form this function in any invalid input case
-pub fn parse_args(args:&Vec<String>)->Option<(usize,usize,usize,String)>{
+pub fn parse_args(args:&Vec<String>)->Option<(usize,usize,usize,String,PolicyType)>{
   
-  //strict enforce to take all 4 required flags 
-  if args.len()!=9{
+  //strict enforce to take all 5 required flags 
+  if args.len()!=11{
     print_err_msg();
     return None;
   }
@@ -74,7 +93,7 @@ pub fn parse_args(args:&Vec<String>)->Option<(usize,usize,usize,String)>{
   opts.optopt("b","","","");
   opts.optopt("E","","","");
   opts.optopt("t","","","");
-
+  opts.optopt("p","","","");
   // parse the arguments safely
   let matches:getopts::Matches=match opts.parse(&args[1..]){
     Ok(m)=>m,
@@ -95,27 +114,27 @@ pub fn parse_args(args:&Vec<String>)->Option<(usize,usize,usize,String)>{
   let b=matches.opt_str("b");
   let e=matches.opt_str("E");
   let t=matches.opt_str("t");
-
+  let p=matches.opt_str("p");
   //ensure all required flags are present
-  if s.is_none()||b.is_none()||e.is_none()||t.is_none(){
+  if s.is_none()||b.is_none()||e.is_none()||t.is_none()||p.is_none(){
     print_err_msg();
     return None;
   }
 
   //parse numeric value safely, handle error by returning None
-  let (s,e,b,trace_file):(usize,usize,usize,String)=match(
+  let (s,e,b,trace_file,policy):(usize,usize,usize,String,PolicyType)=match(
     s.unwrap().parse(),
     e.unwrap().parse(),
     b.unwrap().parse(),
     t.unwrap(),
+    p.unwrap().parse()
   ){
-    (Ok(sv),Ok(ev),Ok(bv),tv)=>(sv,ev,bv,tv),
+    (Ok(sv),Ok(ev),Ok(bv),tf,Ok(pt))=> (sv,ev,bv,tf,pt),
     _ =>{
       print_err_msg();
       return None;
     }
   };
-
   //return Some(value) of validated cli flag values. 
-  Some((s,e,b,trace_file))
+  Some((s,e,b,trace_file,policy))
 }

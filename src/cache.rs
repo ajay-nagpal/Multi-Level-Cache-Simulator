@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-#![allow(unused_variables)]
 use std::fs::File;                // file handling
 use std::io::{BufReader,BufRead};// buffered reading of trace file
 
@@ -182,10 +180,54 @@ impl Cache{
     SearchResult::MISS 
   }
 
+  // check if the set is full, if so return true, else fasle;
+  fn  is_full(&mut self,set_index:usize)->bool{
+    //use set index to determine set
+    //search for free line in that set
+
+    let set:& Set=& self.sets[set_index];
+    
+    for line in &set.lines{
+      // if any line available set is not full , free space available
+      if ! line.contain_block {
+        return false;
+      }
+    }
+    true 
+  }
+
   // insert address logically into set
   // and update the recency information 
   fn insert(&mut self,address:u64)->Option<u64>{
-    todo!()
+    let (tag,set_index)=parse_address (address,self.s,self.b);
+
+    // checking is_full ensure that in future extension
+    // we dont have to write self.evicts++ each time we evict in extended l1,l2 design
+    // by checking each time in if else during insert that if space is available or not 
+    // this is better approach
+
+    let mut evicted_address:Option<u64>=None;
+    if self.is_full(set_index){
+      self.evicts+=1;
+      evicted_address=Some(self.evict(address));
+    }
+
+    let set:&mut Set=&mut self.sets[set_index];
+
+    // iterate over all line in a set
+    // insert address logical;y in first available free line
+    for (line_index,line) in set.lines.iter_mut().enumerate(){
+      if !line.contain_block{
+        line.contain_block=true;
+        line.tag=tag;
+        line.address=address;
+        
+        // record cache access on insert for that line 
+        set.policy.record_cache_access(line_index);
+        break;
+      }
+    }
+   evicted_address
   }
 
   // evict a line from set based on policy and return the evicted address

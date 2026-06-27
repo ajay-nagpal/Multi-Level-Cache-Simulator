@@ -1,8 +1,6 @@
 use std::env;                   //read command line arguments
-use multi_level_cache_simulator::{print_err_msg, parse_args};// import utility fucntion used here 
+use multi_level_cache_simulator::{parse_args, print_err_msg};// import utility fucntion used here 
 use multi_level_cache_simulator::cache::{process_trace_file,PolicyType};// import core simulation components
-
-#[allow(unused_variables)]
 pub fn main() {
 
   //collect command line args into a vector
@@ -12,7 +10,8 @@ pub fn main() {
   //e: number of lines in a set
   //b: number of block offset bits
   // trace_file: path to the file containing memory access
-  let (s,e,b,trace_file):(usize,usize,usize,String)=match parse_args(&args){
+  // policy: the replacement policy to use
+  let (s,e,b,trace_file,policy):(usize,usize,usize,String,PolicyType)=match parse_args(&args){
     //successful parse, extract values
     Some(v)=>v,
 
@@ -30,5 +29,6 @@ pub fn main() {
   //process the trace file get the cache staticstics
   // policy type if passed explicitly
   // this design allow future extension
-  let (hits,misses,evictions)=process_trace_file(s,e,b,trace_file.as_str(),PolicyType::LRU);
+  let (hits,misses,evictions)=process_trace_file(s,e,b,trace_file.as_str(),policy);
+  println!("hits:{} misses:{} evictions:{}",hits,misses,evictions);
 }

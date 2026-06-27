@@ -2,7 +2,6 @@ use std::u64;
 
 // create a generic  interface for replacement policies
 // which will be implemented by policies
-
 pub trait ReplacementPolicy{
   // struct implementing this trait will provide implementations for these
 
